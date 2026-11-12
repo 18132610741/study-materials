@@ -28,6 +28,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: 10
           run_install: false
 
       - name: Get pnpm store directory
@@ -54,11 +55,15 @@ jobs:
           java-version: 17
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
       - name: Install Android SDK components
         run: |
-          sdkmanager "platforms;android-34" \
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" \
+                     "platforms;android-34" \
                      "build-tools;34.0.0" \
                      "ndk;27.2.12479018" \
                      "cmake;3.22.1"

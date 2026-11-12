@@ -66,14 +66,24 @@ if (!original.includes(releaseAnchor)) {
   fail(`Android 模板结构已变化：找不到锚点 "${releaseAnchor}"，请同步更新本脚本`);
 }
 
+// 为什么把值直接写成 Kotlin 字面量，而不在 Gradle 脚本里解析 keystore.properties：
+// .gradle.kts 中 `java` 会被 Gradle 自动生成的 java 扩展访问器遮蔽，写 java.util.Properties
+// 会报 "Unresolved reference: util"（第一次 CI 就是这么挂的）；用 readLines 自己解析虽然可行，
+// 但每验证一次要烧掉几分钟构建。这里只留下 Android Studio 模板里最常见的
+// rootProject.file("...") 和字符串常量，语法风险最低。
+// 代价：生成的 app/build.gradle.kts 里会含明文密码。该文件在 src-tauri/gen/（已被 .gitignore
+// 忽略、runner 用完即销毁），且 Actions 日志会自动屏蔽 secret 值。
+function ktString(value) {
+  if (/[\r\n]/.test(value)) fail(`密钥值不能包含换行：${JSON.stringify(value)}`);
+  return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
 const signingConfigsBlock = `    signingConfigs {
         create("hghubRelease") {
-            val ksProps = java.util.Properties()
-            rootProject.file("keystore.properties").inputStream().use { ksProps.load(it) }
-            storeFile = rootProject.file(ksProps.getProperty("storeFile"))
-            storePassword = ksProps.getProperty("storePassword")
-            keyAlias = ksProps.getProperty("keyAlias")
-            keyPassword = ksProps.getProperty("keyPassword")
+            storeFile = rootProject.file(${ktString(props.storeFile)})
+            storePassword = ${ktString(props.storePassword)}
+            keyAlias = ${ktString(props.keyAlias)}
+            keyPassword = ${ktString(props.keyPassword)}
         }
     }
 
